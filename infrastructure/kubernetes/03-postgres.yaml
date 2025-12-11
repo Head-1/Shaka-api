@@ -1,0 +1,554 @@
+# ============================================================================
+# SHAKA API - POSTGRESQL STATEFULSET
+# Arquivo: infrastructure/kubernetes/03-postgres.yaml
+# Objetivo: Database PostgreSQL com persistência e backups
+# ============================================================================
+
+# ============================================================================
+# DEVELOPMENT - PostgreSQL
+# ============================================================================
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-pvc
+  namespace: shaka-dev
+  labels:
+    app: postgres
+    environment: development
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+  storageClassName: local-path  # k3s default storage class
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-dev
+  namespace: shaka-dev
+  labels:
+    app: postgres
+    environment: development
+spec:
+  type: ClusterIP
+  ports:
+    - port: 5432
+      targetPort: 5432
+      protocol: TCP
+      name: postgresql
+  selector:
+    app: postgres
+    environment: development
+
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres
+  namespace: shaka-dev
+  labels:
+    app: postgres
+    environment: development
+spec:
+  serviceName: postgres-dev
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres
+      environment: development
+  template:
+    metadata:
+      labels:
+        app: postgres
+        environment: development
+    spec:
+      containers:
+      - name: postgres
+        image: postgres:15-alpine
+        ports:
+        - containerPort: 5432
+          name: postgresql
+        env:
+        - name: POSTGRES_DB
+          valueFrom:
+            configMapKeyRef:
+              name: shaka-api-config
+              key: DB_NAME
+        - name: POSTGRES_USER
+          valueFrom:
+            secretKeyRef:
+              name: shaka-api-secrets
+              key: DB_USER
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: shaka-api-secrets
+              key: DB_PASSWORD
+        - name: PGDATA
+          value: /var/lib/postgresql/data/pgdata
+        volumeMounts:
+        - name: postgres-storage
+          mountPath: /var/lib/postgresql/data
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - pg_isready -U $POSTGRES_USER -d $POSTGRES_DB
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - pg_isready -U $POSTGRES_USER -d $POSTGRES_DB
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+      volumes:
+      - name: postgres-storage
+        persistentVolumeClaim:
+          claimName: postgres-pvc
+
+---
+# ============================================================================
+# STAGING - PostgreSQL
+# ============================================================================
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-pvc
+  namespace: shaka-staging
+  labels:
+    app: postgres
+    environment: staging
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: local-path
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-staging
+  namespace: shaka-staging
+  labels:
+    app: postgres
+    environment: staging
+spec:
+  type: ClusterIP
+  ports:
+    - port: 5432
+      targetPort: 5432
+      protocol: TCP
+      name: postgresql
+  selector:
+    app: postgres
+    environment: staging
+
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres
+  namespace: shaka-staging
+  labels:
+    app: postgres
+    environment: staging
+spec:
+  serviceName: postgres-staging
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres
+      environment: staging
+  template:
+    metadata:
+      labels:
+        app: postgres
+        environment: staging
+    spec:
+      containers:
+      - name: postgres
+        image: postgres:15-alpine
+        ports:
+        - containerPort: 5432
+          name: postgresql
+        env:
+        - name: POSTGRES_DB
+          valueFrom:
+            configMapKeyRef:
+              name: shaka-api-config
+              key: DB_NAME
+        - name: POSTGRES_USER
+          valueFrom:
+            secretKeyRef:
+              name: shaka-api-secrets
+              key: DB_USER
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: shaka-api-secrets
+              key: DB_PASSWORD
+        - name: PGDATA
+          value: /var/lib/postgresql/data/pgdata
+        volumeMounts:
+        - name: postgres-storage
+          mountPath: /var/lib/postgresql/data
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "500m"
+          limits:
+            memory: "1Gi"
+            cpu: "1000m"
+        livenessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - pg_isready -U $POSTGRES_USER -d $POSTGRES_DB
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - pg_isready -U $POSTGRES_USER -d $POSTGRES_DB
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+      volumes:
+      - name: postgres-storage
+        persistentVolumeClaim:
+          claimName: postgres-pvc
+
+---
+# ============================================================================
+# PRODUCTION - PostgreSQL (Enhanced with backup sidecar)
+# ============================================================================
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-pvc
+  namespace: shaka-prod
+  labels:
+    app: postgres
+    environment: production
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 20Gi
+  storageClassName: local-path
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-backup-pvc
+  namespace: shaka-prod
+  labels:
+    app: postgres
+    component: backup
+    environment: production
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 20Gi
+  storageClassName: local-path
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-prod
+  namespace: shaka-prod
+  labels:
+    app: postgres
+    environment: production
+spec:
+  type: ClusterIP
+  ports:
+    - port: 5432
+      targetPort: 5432
+      protocol: TCP
+      name: postgresql
+  selector:
+    app: postgres
+    environment: production
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-backup-script
+  namespace: shaka-prod
+data:
+  backup.sh: |
+    #!/bin/bash
+    set -e
+    
+    BACKUP_DIR="/backups"
+    TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+    BACKUP_FILE="${BACKUP_DIR}/backup_${TIMESTAMP}.sql.gz"
+    
+    echo "$(date) - Starting backup to ${BACKUP_FILE}"
+    
+    pg_dump -U ${POSTGRES_USER} -d ${POSTGRES_DB} | gzip > ${BACKUP_FILE}
+    
+    if [ $? -eq 0 ]; then
+        echo "$(date) - Backup completed successfully"
+        
+        # Keep only last 7 days of backups
+        find ${BACKUP_DIR} -name "backup_*.sql.gz" -mtime +7 -delete
+        echo "$(date) - Old backups cleaned up"
+    else
+        echo "$(date) - Backup failed!"
+        exit 1
+    fi
+
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres
+  namespace: shaka-prod
+  labels:
+    app: postgres
+    environment: production
+spec:
+  serviceName: postgres-prod
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres
+      environment: production
+  template:
+    metadata:
+      labels:
+        app: postgres
+        environment: production
+    spec:
+      containers:
+      # Main PostgreSQL container
+      - name: postgres
+        image: postgres:15-alpine
+        ports:
+        - containerPort: 5432
+          name: postgresql
+        env:
+        - name: POSTGRES_DB
+          valueFrom:
+            configMapKeyRef:
+              name: shaka-api-config
+              key: DB_NAME
+        - name: POSTGRES_USER
+          valueFrom:
+            secretKeyRef:
+              name: shaka-api-secrets
+              key: DB_USER
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: shaka-api-secrets
+              key: DB_PASSWORD
+        - name: PGDATA
+          value: /var/lib/postgresql/data/pgdata
+        # PostgreSQL Performance Tuning
+        - name: POSTGRES_INITDB_ARGS
+          value: "--encoding=UTF8 --locale=C"
+        volumeMounts:
+        - name: postgres-storage
+          mountPath: /var/lib/postgresql/data
+        - name: backup-storage
+          mountPath: /backups
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "500m"
+          limits:
+            memory: "2Gi"
+            cpu: "1000m"
+        livenessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - pg_isready -U $POSTGRES_USER -d $POSTGRES_DB
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 6
+        readinessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - pg_isready -U $POSTGRES_USER -d $POSTGRES_DB
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+      
+      # Backup sidecar container (runs daily backups)
+      - name: backup
+        image: postgres:15-alpine
+        command:
+        - /bin/sh
+        - -c
+        - |
+          # Wait for PostgreSQL to be ready
+          sleep 60
+          
+          # Run backup every 24 hours
+          while true; do
+            /backup.sh
+            sleep 86400  # 24 hours
+          done
+        env:
+        - name: POSTGRES_DB
+          valueFrom:
+            configMapKeyRef:
+              name: shaka-api-config
+              key: DB_NAME
+        - name: POSTGRES_USER
+          valueFrom:
+            secretKeyRef:
+              name: shaka-api-secrets
+              key: DB_USER
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: shaka-api-secrets
+              key: DB_PASSWORD
+        - name: PGHOST
+          value: localhost
+        volumeMounts:
+        - name: backup-storage
+          mountPath: /backups
+        - name: backup-script
+          mountPath: /backup.sh
+          subPath: backup.sh
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+      
+      volumes:
+      - name: postgres-storage
+        persistentVolumeClaim:
+          claimName: postgres-pvc
+      - name: backup-storage
+        persistentVolumeClaim:
+          claimName: postgres-backup-pvc
+      - name: backup-script
+        configMap:
+          name: postgres-backup-script
+          defaultMode: 0755
+
+---
+# ============================================================================
+# CRONJOB - Manual backup trigger (for on-demand backups)
+# ============================================================================
+
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: postgres-backup
+  namespace: shaka-prod
+  labels:
+    app: postgres
+    component: backup
+spec:
+  schedule: "0 2 * * *"  # Run at 2 AM every day
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            app: postgres
+            component: backup
+        spec:
+          restartPolicy: OnFailure
+          containers:
+          - name: backup
+            image: postgres:15-alpine
+            command:
+            - /bin/sh
+            - -c
+            - |
+              BACKUP_FILE="/backups/cron_backup_$(date +%Y%m%d_%H%M%S).sql.gz"
+              echo "Starting scheduled backup to ${BACKUP_FILE}"
+              pg_dump -h postgres-prod -U ${POSTGRES_USER} -d ${POSTGRES_DB} | gzip > ${BACKUP_FILE}
+              echo "Backup completed: ${BACKUP_FILE}"
+              
+              # Cleanup old backups (keep last 30 days)
+              find /backups -name "cron_backup_*.sql.gz" -mtime +30 -delete
+            env:
+            - name: POSTGRES_DB
+              valueFrom:
+                configMapKeyRef:
+                  name: shaka-api-config
+                  key: DB_NAME
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: shaka-api-secrets
+                  key: DB_USER
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: shaka-api-secrets
+                  key: DB_PASSWORD
+            volumeMounts:
+            - name: backup-storage
+              mountPath: /backups
+            resources:
+              requests:
+                memory: "128Mi"
+                cpu: "100m"
+              limits:
+                memory: "512Mi"
+                cpu: "500m"
+          volumes:
+          - name: backup-storage
+            persistentVolumeClaim:
+              claimName: postgres-backup-pvc

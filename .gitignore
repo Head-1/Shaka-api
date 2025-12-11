@@ -1,0 +1,79 @@
+# ==========================================
+# Shaka API - Production .gitignore
+# ==========================================
+
+# Environment & Secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.crt
+*.p12
+secrets/
+
+# Dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Build Output
+dist/
+build/
+*.tsbuildinfo
+.cache/
+
+# Testing
+coverage/
+.nyc_output/
+
+# Logs
+logs/
+*.log
+.server.pid
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Kubernetes Secrets (CRITICAL!)
+infrastructure/kubernetes/secrets/*.yaml
+!infrastructure/kubernetes/secrets/README.md
+
+# Backups & Temp
+backup/
+backups/
+temp/
+tmp/
+*.backup
+*.backup-*
+*.bak
+
+# Scripts de Debug (não commitamos)
+*-fix.sh
+*-test.sh
+investigate-*.sh
+diagnose-*.sh
+check-*.sh
+validate-*.sh
+scripts/fix-*.sh
+scripts/test-*.sh
+scripts/validate-*.sh
+scripts/deployment/fix-*.sh
+scripts/deployment/test-*.sh
+
+# Docker local
+.dockerignore
+docker-compose.override.yml
+*.tar.gz
+*.zip
+*.bin
+minikube-*

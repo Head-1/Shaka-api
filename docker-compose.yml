@@ -1,0 +1,140 @@
+version: '3.8'
+
+# ============================================================================
+# SHAKA API - DOCKER COMPOSE
+# ============================================================================
+# Descrição: Ambiente de desenvolvimento completo
+# Serviços: API + PostgreSQL + Redis
+# ============================================================================
+
+services:
+  # ==========================================================================
+  # API (Node.js + TypeScript)
+  # ==========================================================================
+  api:
+    build:
+      context: .
+      dockerfile: docker/api/Dockerfile
+      target: builder  # Usar stage builder para dev
+    container_name: shaka-api
+    restart: unless-stopped
+    ports:
+      - "${APP_PORT:-3000}:3000"
+    environment:
+      # Application
+      - NODE_ENV=${NODE_ENV:-development}
+      - APP_NAME=${APP_NAME:-shaka-api}
+      - APP_PORT=3000
+      - API_VERSION=${API_VERSION:-v1}
+      
+      # Database
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=${DB_NAME:-shaka_api}
+      - DB_USER=${DB_USER:-shaka}
+      - DB_PASSWORD=${DB_PASSWORD:-shaka123}
+      
+      # Redis
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
+      - REDIS_DB=${REDIS_DB:-0}
+      
+      # JWT
+      - JWT_SECRET=${JWT_SECRET:-dev_secret_change_in_production}
+      - JWT_EXPIRES_IN=${JWT_EXPIRES_IN:-24h}
+      
+      # Rate Limiting
+      - RATE_LIMIT_STARTER=${RATE_LIMIT_STARTER:-100}
+      - RATE_LIMIT_PRO=${RATE_LIMIT_PRO:-1000}
+      - RATE_LIMIT_BUSINESS=${RATE_LIMIT_BUSINESS:-10000}
+    
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    
+    volumes:
+      # Hot reload em desenvolvimento
+      - ./src:/app/src:ro
+      - ./dist:/app/dist
+      - /app/node_modules  # Named volume para node_modules
+    
+    networks:
+      - shaka-network
+    
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    
+    command: npm run dev
+
+  # ==========================================================================
+  # PostgreSQL 15 (Database)
+  # ==========================================================================
+  postgres:
+    image: postgres:15-alpine
+    container_name: shaka-postgres
+    restart: unless-stopped
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    environment:
+      - POSTGRES_DB=${DB_NAME:-shaka_api}
+      - POSTGRES_USER=${DB_USER:-shaka}
+      - POSTGRES_PASSWORD=${DB_PASSWORD:-shaka123}
+      - PGDATA=/var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - shaka-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-shaka} -d ${DB_NAME:-shaka_api}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # ==========================================================================
+  # Redis 7 (Cache)
+  # ==========================================================================
+  redis:
+    image: redis:7-alpine
+    container_name: shaka-redis
+    restart: unless-stopped
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    command: >
+      sh -c "redis-server 
+      --appendonly yes 
+      --requirepass '${REDIS_PASSWORD:-}'"
+    volumes:
+      - redis_data:/data
+    networks:
+      - shaka-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+
+# ============================================================================
+# Networks
+# ============================================================================
+networks:
+  shaka-network:
+    driver: bridge
+    name: shaka-network
+
+# ============================================================================
+# Volumes Persistentes
+# ============================================================================
+volumes:
+  postgres_data:
+    name: shaka-postgres-data
+  redis_data:
+    name: shaka-redis-data

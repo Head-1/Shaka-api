@@ -1,0 +1,31 @@
+# Shaka API - Rate Limiting Middleware
+# Criado: 01/Dez/2025 - Fase 16
+
+---
+apiVersion: traefik.containo.us/v1alpha1
+kind: Middleware
+metadata:
+  name: ratelimit
+  namespace: shaka-staging
+spec:
+  rateLimit:
+    average: 100
+    burst: 50
+    period: 1s
+    
+    sourceCriterion:
+      ipStrategy:
+        depth: 1
+        excludedIPs: []
+
+---
+apiVersion: traefik.containo.us/v1alpha1
+kind: Middleware
+metadata:
+  name: ratelimit
+  namespace: shaka-dev
+spec:
+  rateLimit:
+    average: 1000
+    burst: 500
+    period: 1s

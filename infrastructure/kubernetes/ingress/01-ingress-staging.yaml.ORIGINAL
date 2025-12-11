@@ -1,0 +1,73 @@
+# Shaka API - Ingress Configuration for STAGING
+# Traefik Ingress Controller
+# Criado: 01/Dez/2025 - Fase 16
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: shaka-api
+  namespace: shaka-staging
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: web,websecure
+    traefik.ingress.kubernetes.io/router.middlewares: shaka-staging-cors@kubernetescrd,shaka-staging-ratelimit@kubernetescrd
+    traefik.ingress.kubernetes.io/router.timeout: "60s"
+    traefik.ingress.kubernetes.io/router.headers.customrequestheaders.X-Forwarded-Proto: "https"
+  labels:
+    app: shaka-api
+    environment: staging
+    version: "1.0"
+
+spec:
+  ingressClassName: traefik
+  
+  rules:
+  - host: staging.shaka.local
+    http:
+      paths:
+      - path: /health
+        pathType: Exact
+        backend:
+          service:
+            name: shaka-api
+            port:
+              number: 3000
+      
+      - path: /api/v1
+        pathType: Prefix
+        backend:
+          service:
+            name: shaka-api
+            port:
+              number: 3000
+      
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: shaka-api
+            port:
+              number: 3000
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: shaka-api
+  namespace: shaka-staging
+  labels:
+    app: shaka-api
+    environment: staging
+spec:
+  type: ClusterIP
+  selector:
+    app: shaka-api
+  ports:
+  - name: http
+    port: 3000
+    targetPort: 3000
+    protocol: TCP
+  sessionAffinity: ClientIP
+  sessionAffinityConfig:
+    clientIP:
+      timeoutSeconds: 10800

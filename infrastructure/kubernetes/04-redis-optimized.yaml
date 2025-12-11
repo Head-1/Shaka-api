@@ -1,0 +1,119 @@
+# ============================================================================
+# FIX: Redis Dev e Prod - Recursos Minimizados
+# ============================================================================
+
+---
+# DEV - Deployment otimizado
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis
+  namespace: shaka-dev
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis
+      environment: development
+  template:
+    metadata:
+      labels:
+        app: redis
+        environment: development
+    spec:
+      containers:
+      - name: redis
+        image: redis:7-alpine
+        ports:
+        - containerPort: 6379
+          name: redis
+        command:
+          - redis-server
+          - --maxmemory
+          - "64mb"
+          - --maxmemory-policy
+          - allkeys-lru
+          - --save
+          - ""
+          - --appendonly
+          - "no"
+        resources:
+          requests:
+            memory: "32Mi"
+            cpu: "25m"
+          limits:
+            memory: "64Mi"
+            cpu: "50m"
+        livenessProbe:
+          tcpSocket:
+            port: 6379
+          initialDelaySeconds: 15
+          periodSeconds: 10
+        readinessProbe:
+          exec:
+            command:
+            - redis-cli
+            - ping
+          initialDelaySeconds: 5
+          periodSeconds: 10
+
+---
+# PROD - StatefulSet otimizado (SEM exporter por enquanto)
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: redis
+  namespace: shaka-prod
+spec:
+  serviceName: redis-prod
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis
+      environment: production
+  template:
+    metadata:
+      labels:
+        app: redis
+        environment: production
+    spec:
+      containers:
+      - name: redis
+        image: redis:7-alpine
+        ports:
+        - containerPort: 6379
+          name: redis
+        command:
+          - redis-server
+          - /etc/redis/redis.conf
+        volumeMounts:
+        - name: redis-data
+          mountPath: /data
+        - name: redis-config
+          mountPath: /etc/redis
+        resources:
+          requests:
+            memory: "96Mi"
+            cpu: "50m"
+          limits:
+            memory: "192Mi"
+            cpu: "150m"
+        livenessProbe:
+          tcpSocket:
+            port: 6379
+          initialDelaySeconds: 15
+          periodSeconds: 10
+        readinessProbe:
+          exec:
+            command:
+            - redis-cli
+            - ping
+          initialDelaySeconds: 5
+          periodSeconds: 10
+      volumes:
+      - name: redis-data
+        persistentVolumeClaim:
+          claimName: redis-pvc
+      - name: redis-config
+        configMap:
+          name: redis-config

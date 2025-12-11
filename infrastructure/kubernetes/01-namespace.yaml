@@ -1,0 +1,247 @@
+# ============================================================================
+# SHAKA API - KUBERNETES NAMESPACES
+# Arquivo: infrastructure/kubernetes/01-namespace.yaml
+# Objetivo: Criar namespaces isolados para cada ambiente
+# ============================================================================
+
+---
+# DESENVOLVIMENTO - Ambiente local/testes rápidos
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: shaka-dev
+  labels:
+    name: shaka-dev
+    environment: development
+    managed-by: shaka-api
+    cost-center: engineering
+  annotations:
+    description: "Development environment - unstable, frequent changes"
+    contact: "devops@shakaapi.com"
+
+---
+# STAGING - Ambiente de homologação/QA
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: shaka-staging
+  labels:
+    name: shaka-staging
+    environment: staging
+    managed-by: shaka-api
+    cost-center: engineering
+  annotations:
+    description: "Staging environment - mirror of production for testing"
+    contact: "devops@shakaapi.com"
+
+---
+# PRODUCTION - Ambiente de produção
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: shaka-prod
+  labels:
+    name: shaka-prod
+    environment: production
+    managed-by: shaka-api
+    cost-center: operations
+  annotations:
+    description: "Production environment - stable, customer-facing"
+    contact: "ops@shakaapi.com"
+    sla: "99.95%"
+    support: "24/7"
+
+---
+# MONITORING - Namespace para ferramentas de observabilidade
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: shaka-monitoring
+  labels:
+    name: shaka-monitoring
+    environment: shared
+    managed-by: shaka-api
+    cost-center: operations
+  annotations:
+    description: "Monitoring stack - Prometheus, Grafana, Loki, Jaeger"
+    contact: "sre@shakaapi.com"
+
+---
+# ============================================================================
+# RESOURCE QUOTAS - Limites de recursos por namespace
+# Garante que nenhum ambiente consuma recursos excessivos
+# ============================================================================
+
+# Dev - Recursos limitados (ambiente de testes)
+---
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: dev-quota
+  namespace: shaka-dev
+spec:
+  hard:
+    requests.cpu: "4"           # 4 CPUs total
+    requests.memory: 8Gi        # 8GB RAM total
+    limits.cpu: "8"             # Máximo 8 CPUs em burst
+    limits.memory: 16Gi         # Máximo 16GB RAM
+    persistentvolumeclaims: "5" # Máximo 5 PVCs
+    pods: "20"                  # Máximo 20 pods
+
+---
+# Staging - Recursos médios (mirror de prod em menor escala)
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: staging-quota
+  namespace: shaka-staging
+spec:
+  hard:
+    requests.cpu: "8"
+    requests.memory: 16Gi
+    limits.cpu: "16"
+    limits.memory: 32Gi
+    persistentvolumeclaims: "10"
+    pods: "50"
+
+---
+# Production - Recursos generosos (ambiente crítico)
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: prod-quota
+  namespace: shaka-prod
+spec:
+  hard:
+    requests.cpu: "32"          # 32 CPUs garantidos
+    requests.memory: 64Gi       # 64GB RAM garantidos
+    limits.cpu: "64"            # Burst até 64 CPUs
+    limits.memory: 128Gi        # Burst até 128GB
+    persistentvolumeclaims: "20"
+    pods: "200"                 # Escala para 200 pods
+
+---
+# ============================================================================
+# LIMIT RANGES - Limites padrão para pods individuais
+# Evita que um único pod consuma recursos excessivos
+# ============================================================================
+
+# Dev - Limites conservadores
+---
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: dev-limit-range
+  namespace: shaka-dev
+spec:
+  limits:
+  - max:
+      cpu: "2"              # Pod máximo: 2 CPUs
+      memory: 4Gi           # Pod máximo: 4GB
+    min:
+      cpu: 100m             # Pod mínimo: 0.1 CPU
+      memory: 128Mi         # Pod mínimo: 128MB
+    default:
+      cpu: 500m             # Padrão se não especificado: 0.5 CPU
+      memory: 512Mi         # Padrão se não especificado: 512MB
+    defaultRequest:
+      cpu: 200m             # Request padrão: 0.2 CPU
+      memory: 256Mi         # Request padrão: 256MB
+    type: Container
+
+---
+# Staging - Limites médios
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: staging-limit-range
+  namespace: shaka-staging
+spec:
+  limits:
+  - max:
+      cpu: "4"
+      memory: 8Gi
+    min:
+      cpu: 100m
+      memory: 128Mi
+    default:
+      cpu: "1"
+      memory: 1Gi
+    defaultRequest:
+      cpu: 500m
+      memory: 512Mi
+    type: Container
+
+---
+# Production - Limites generosos mas controlados
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: prod-limit-range
+  namespace: shaka-prod
+spec:
+  limits:
+  - max:
+      cpu: "8"              # Pod máximo: 8 CPUs (workloads pesados)
+      memory: 16Gi          # Pod máximo: 16GB
+    min:
+      cpu: 100m
+      memory: 128Mi
+    default:
+      cpu: "2"              # Padrão generoso para prod
+      memory: 2Gi
+    defaultRequest:
+      cpu: "1"              # Request garantido
+      memory: 1Gi
+    type: Container
+
+---
+# ============================================================================
+# NETWORK POLICIES - Isolamento de rede entre namespaces
+# Segurança: Cada namespace só se comunica onde necessário
+# ============================================================================
+
+# Dev - Política permissiva (facilita debugging)
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: dev-allow-all
+  namespace: shaka-dev
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - {}
+  egress:
+  - {}
+
+---
+# Staging - Política mais restritiva
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: staging-default-deny
+  namespace: shaka-staging
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  - Egress
+  # Nega tudo por padrão, permite apenas o explicitamente autorizado
+
+---
+# Production - Política restritiva (zero-trust)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: prod-default-deny
+  namespace: shaka-prod
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  - Egress
+  # Produção: Nega tudo, cada serviço terá sua NetworkPolicy específica

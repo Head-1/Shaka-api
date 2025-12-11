@@ -1,0 +1,36 @@
+# ============================================================================
+# PATCH: Reduzir recursos do PostgreSQL Production
+# Aplicar depois: kubectl apply -f 03-postgres-optimized.yaml
+# ============================================================================
+
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres
+  namespace: shaka-prod
+spec:
+  template:
+    spec:
+      containers:
+      # PostgreSQL container - recursos reduzidos
+      - name: postgres
+        image: postgres:15-alpine
+        resources:
+          requests:
+            memory: "384Mi"    # Reduzido de 1Gi
+            cpu: "250m"        # Reduzido de 500m
+          limits:
+            memory: "768Mi"    # Reduzido de 2Gi
+            cpu: "500m"        # Reduzido de 1000m
+      
+      # Backup sidecar - recursos mínimos
+      - name: backup
+        image: postgres:15-alpine
+        resources:
+          requests:
+            memory: "64Mi"     # Reduzido de 128Mi
+            cpu: "50m"         # Reduzido de 100m
+          limits:
+            memory: "128Mi"    # Reduzido de 256Mi
+            cpu: "100m"        # Reduzido de 200m

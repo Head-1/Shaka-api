@@ -1,0 +1,436 @@
+# ============================================================================
+# SHAKA API - REDIS CACHE & RATE LIMITING
+# Arquivo: infrastructure/kubernetes/04-redis.yaml
+# Objetivo: Cache distribuído e rate limiting
+# ============================================================================
+
+# ============================================================================
+# DEVELOPMENT - Redis
+# ============================================================================
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-dev
+  namespace: shaka-dev
+  labels:
+    app: redis
+    environment: development
+spec:
+  type: ClusterIP
+  ports:
+    - port: 6379
+      targetPort: 6379
+      protocol: TCP
+      name: redis
+  selector:
+    app: redis
+    environment: development
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis
+  namespace: shaka-dev
+  labels:
+    app: redis
+    environment: development
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis
+      environment: development
+  template:
+    metadata:
+      labels:
+        app: redis
+        environment: development
+    spec:
+      containers:
+      - name: redis
+        image: redis:7-alpine
+        ports:
+        - containerPort: 6379
+          name: redis
+        command:
+          - redis-server
+          - --maxmemory
+          - "128mb"
+          - --maxmemory-policy
+          - allkeys-lru
+          - --save
+          - ""
+          - --appendonly
+          - "no"
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "50m"
+          limits:
+            memory: "128Mi"
+            cpu: "100m"
+        livenessProbe:
+          tcpSocket:
+            port: 6379
+          initialDelaySeconds: 15
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          exec:
+            command:
+            - redis-cli
+            - ping
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+
+---
+# ============================================================================
+# STAGING - Redis with persistence
+# ============================================================================
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: redis-pvc
+  namespace: shaka-staging
+  labels:
+    app: redis
+    environment: staging
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 2Gi
+  storageClassName: local-path
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: redis-config
+  namespace: shaka-staging
+  labels:
+    app: redis
+    environment: staging
+data:
+  redis.conf: |
+    # Redis Configuration - Staging
+    maxmemory 256mb
+    maxmemory-policy allkeys-lru
+    
+    # Persistence
+    save 900 1
+    save 300 10
+    save 60 10000
+    
+    # AOF
+    appendonly yes
+    appendfsync everysec
+    
+    # Performance
+    tcp-backlog 511
+    timeout 0
+    tcp-keepalive 300
+    
+    # Limits
+    maxclients 1000
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-staging
+  namespace: shaka-staging
+  labels:
+    app: redis
+    environment: staging
+spec:
+  type: ClusterIP
+  ports:
+    - port: 6379
+      targetPort: 6379
+      protocol: TCP
+      name: redis
+  selector:
+    app: redis
+    environment: staging
+
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: redis
+  namespace: shaka-staging
+  labels:
+    app: redis
+    environment: staging
+spec:
+  serviceName: redis-staging
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis
+      environment: staging
+  template:
+    metadata:
+      labels:
+        app: redis
+        environment: staging
+    spec:
+      containers:
+      - name: redis
+        image: redis:7-alpine
+        ports:
+        - containerPort: 6379
+          name: redis
+        command:
+          - redis-server
+          - /etc/redis/redis.conf
+        volumeMounts:
+        - name: redis-data
+          mountPath: /data
+        - name: redis-config
+          mountPath: /etc/redis
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+        livenessProbe:
+          tcpSocket:
+            port: 6379
+          initialDelaySeconds: 15
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          exec:
+            command:
+            - redis-cli
+            - ping
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+      volumes:
+      - name: redis-data
+        persistentVolumeClaim:
+          claimName: redis-pvc
+      - name: redis-config
+        configMap:
+          name: redis-config
+
+---
+# ============================================================================
+# PRODUCTION - Redis with optimized settings
+# ============================================================================
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: redis-pvc
+  namespace: shaka-prod
+  labels:
+    app: redis
+    environment: production
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+  storageClassName: local-path
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: redis-config
+  namespace: shaka-prod
+  labels:
+    app: redis
+    environment: production
+data:
+  redis.conf: |
+    # Redis Configuration - Production
+    maxmemory 384mb
+    maxmemory-policy allkeys-lru
+    
+    # Persistence (RDB + AOF for durability)
+    save 900 1
+    save 300 10
+    save 60 10000
+    
+    # AOF
+    appendonly yes
+    appendfsync everysec
+    auto-aof-rewrite-percentage 100
+    auto-aof-rewrite-min-size 64mb
+    
+    # Performance tuning
+    tcp-backlog 511
+    timeout 0
+    tcp-keepalive 300
+    
+    # Limits
+    maxclients 10000
+    
+    # Slow log
+    slowlog-log-slower-than 10000
+    slowlog-max-len 128
+    
+    # Lazy freeing
+    lazyfree-lazy-eviction yes
+    lazyfree-lazy-expire yes
+    lazyfree-lazy-server-del yes
+    
+    # Logging
+    loglevel notice
+    
+    # Security
+    protected-mode yes
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-prod
+  namespace: shaka-prod
+  labels:
+    app: redis
+    environment: production
+spec:
+  type: ClusterIP
+  ports:
+    - port: 6379
+      targetPort: 6379
+      protocol: TCP
+      name: redis
+  selector:
+    app: redis
+    environment: production
+
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: redis
+  namespace: shaka-prod
+  labels:
+    app: redis
+    environment: production
+spec:
+  serviceName: redis-prod
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis
+      environment: production
+  template:
+    metadata:
+      labels:
+        app: redis
+        environment: production
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9121"
+    spec:
+      containers:
+      # Main Redis container
+      - name: redis
+        image: redis:7-alpine
+        ports:
+        - containerPort: 6379
+          name: redis
+        command:
+          - redis-server
+          - /etc/redis/redis.conf
+        volumeMounts:
+        - name: redis-data
+          mountPath: /data
+        - name: redis-config
+          mountPath: /etc/redis
+        resources:
+          requests:
+            memory: "192Mi"
+            cpu: "100m"
+          limits:
+            memory: "384Mi"
+            cpu: "300m"
+        livenessProbe:
+          tcpSocket:
+            port: 6379
+          initialDelaySeconds: 15
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          exec:
+            command:
+            - redis-cli
+            - ping
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+      
+      # Redis Exporter for Prometheus (metrics)
+      - name: redis-exporter
+        image: oliver006/redis_exporter:alpine
+        ports:
+        - containerPort: 9121
+          name: metrics
+        env:
+        - name: REDIS_ADDR
+          value: "localhost:6379"
+        resources:
+          requests:
+            memory: "32Mi"
+            cpu: "50m"
+          limits:
+            memory: "64Mi"
+            cpu: "100m"
+      
+      volumes:
+      - name: redis-data
+        persistentVolumeClaim:
+          claimName: redis-pvc
+      - name: redis-config
+        configMap:
+          name: redis-config
+
+---
+# ============================================================================
+# MONITORING - Redis Exporter Service (Production)
+# ============================================================================
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-metrics
+  namespace: shaka-prod
+  labels:
+    app: redis
+    component: metrics
+spec:
+  type: ClusterIP
+  ports:
+    - port: 9121
+      targetPort: 9121
+      protocol: TCP
+      name: metrics
+  selector:
+    app: redis
+    environment: production

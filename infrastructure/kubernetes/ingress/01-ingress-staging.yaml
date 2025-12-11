@@ -1,0 +1,48 @@
+# Shaka API - Ingress MINIMALISTA para STAGING
+# Fase 16 - Versão Light (servidor com recursos limitados)
+# Criado: 02/Dez/2025
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: shaka-api
+  namespace: shaka-staging
+  annotations:
+    # Apenas entrypoints básicos (sem middlewares CRD)
+    traefik.ingress.kubernetes.io/router.entrypoints: web
+  labels:
+    app: shaka-api
+    environment: staging
+    version: "1.0-light"
+
+spec:
+  ingressClassName: traefik
+  
+  rules:
+  - host: staging.shaka.local
+    http:
+      paths:
+      - path: /health
+        pathType: Exact
+        backend:
+          service:
+            name: shaka-api
+            port:
+              number: 3000
+      
+      - path: /api
+        pathType: Prefix
+        backend:
+          service:
+            name: shaka-api
+            port:
+              number: 3000
+      
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: shaka-api
+            port:
+              number: 3000

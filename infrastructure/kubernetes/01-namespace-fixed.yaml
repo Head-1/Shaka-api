@@ -1,0 +1,72 @@
+# ============================================================================
+# FIX: LimitRanges mais flexíveis para containers leves
+# ============================================================================
+
+---
+# Dev - Limites flexíveis
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: dev-limit-range
+  namespace: shaka-dev
+spec:
+  limits:
+  - max:
+      cpu: "2"
+      memory: 4Gi
+    min:
+      cpu: 25m              # Reduzido de 100m
+      memory: 32Mi          # Reduzido de 128Mi
+    default:
+      cpu: 200m
+      memory: 256Mi
+    defaultRequest:
+      cpu: 100m
+      memory: 128Mi
+    type: Container
+
+---
+# Staging - Limites médios
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: staging-limit-range
+  namespace: shaka-staging
+spec:
+  limits:
+  - max:
+      cpu: "4"
+      memory: 8Gi
+    min:
+      cpu: 50m              # Reduzido de 100m
+      memory: 64Mi          # Reduzido de 128Mi
+    default:
+      cpu: 500m
+      memory: 512Mi
+    defaultRequest:
+      cpu: 200m
+      memory: 256Mi
+    type: Container
+
+---
+# Production - Limites balanceados
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: prod-limit-range
+  namespace: shaka-prod
+spec:
+  limits:
+  - max:
+      cpu: "8"
+      memory: 16Gi
+    min:
+      cpu: 50m              # Reduzido de 100m
+      memory: 64Mi          # Reduzido de 128Mi
+    default:
+      cpu: "1"
+      memory: 1Gi
+    defaultRequest:
+      cpu: 500m
+      memory: 512Mi
+    type: Container

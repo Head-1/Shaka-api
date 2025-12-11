@@ -1,0 +1,294 @@
+# ============================================================================
+# SHAKA API - REDIS SHARED ARCHITECTURE
+# Estratégia: 1 cluster Redis central usado por todos os ambientes
+# Isolamento: Por database (0=dev, 1=staging, 2=prod)
+# ============================================================================
+
+---
+# Namespace compartilhado para serviços shared
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: shaka-shared
+  labels:
+    name: shaka-shared
+    purpose: shared-services
+    managed-by: shaka-api
+  annotations:
+    description: "Shared services namespace - Redis, monitoring tools, etc"
+
+---
+# Resource Quota para shared
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: shared-quota
+  namespace: shaka-shared
+spec:
+  hard:
+    requests.cpu: "2"
+    requests.memory: 2Gi
+    limits.cpu: "4"
+    limits.memory: 4Gi
+    persistentvolumeclaims: "5"
+    pods: "20"
+
+---
+# LimitRange para shared
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: shared-limit-range
+  namespace: shaka-shared
+spec:
+  limits:
+  - max:
+      cpu: "2"
+      memory: 2Gi
+    min:
+      cpu: 50m
+      memory: 64Mi
+    default:
+      cpu: 500m
+      memory: 512Mi
+    defaultRequest:
+      cpu: 200m
+      memory: 256Mi
+    type: Container
+
+---
+# Redis PVC
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: redis-pvc
+  namespace: shaka-shared
+  labels:
+    app: redis
+    component: storage
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+  storageClassName: local-path
+
+---
+# Redis ConfigMap
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: redis-config
+  namespace: shaka-shared
+  labels:
+    app: redis
+    component: config
+data:
+  redis.conf: |
+    # Redis Configuration - Shared Service
+    # Used by: dev (DB 0), staging (DB 1), prod (DB 2)
+    
+    # Memory
+    maxmemory 256mb
+    maxmemory-policy allkeys-lru
+    
+    # Databases (separate per environment)
+    databases 16
+    
+    # Persistence (RDB + AOF)
+    save 900 1
+    save 300 10
+    save 60 10000
+    appendonly yes
+    appendfsync everysec
+    auto-aof-rewrite-percentage 100
+    auto-aof-rewrite-min-size 64mb
+    
+    # Performance
+    tcp-backlog 511
+    timeout 0
+    tcp-keepalive 300
+    maxclients 10000
+    
+    # Slow log
+    slowlog-log-slower-than 10000
+    slowlog-max-len 128
+    
+    # Lazy freeing
+    lazyfree-lazy-eviction yes
+    lazyfree-lazy-expire yes
+    lazyfree-lazy-server-del yes
+    
+    # Logging
+    loglevel notice
+
+---
+# Redis Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis
+  namespace: shaka-shared
+  labels:
+    app: redis
+    component: cache
+spec:
+  type: ClusterIP
+  ports:
+    - port: 6379
+      targetPort: 6379
+      protocol: TCP
+      name: redis
+  selector:
+    app: redis
+
+---
+# Redis StatefulSet
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: redis
+  namespace: shaka-shared
+  labels:
+    app: redis
+    component: cache
+spec:
+  serviceName: redis
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis
+  template:
+    metadata:
+      labels:
+        app: redis
+    spec:
+      containers:
+      - name: redis
+        image: redis:7-alpine
+        ports:
+        - containerPort: 6379
+          name: redis
+        command:
+          - redis-server
+          - /etc/redis/redis.conf
+        volumeMounts:
+        - name: redis-data
+          mountPath: /data
+        - name: redis-config
+          mountPath: /etc/redis
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+        livenessProbe:
+          tcpSocket:
+            port: 6379
+          initialDelaySeconds: 15
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          exec:
+            command:
+            - redis-cli
+            - ping
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+      volumes:
+      - name: redis-data
+        persistentVolumeClaim:
+          claimName: redis-pvc
+      - name: redis-config
+        configMap:
+          name: redis-config
+
+---
+# ============================================================================
+# SERVICE ALIASES - ExternalName (aponta para Redis shared)
+# ============================================================================
+
+# Dev Redis Alias (usa DB 0)
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-dev
+  namespace: shaka-dev
+  labels:
+    app: redis
+    environment: development
+  annotations:
+    description: "Points to shared Redis - DB 0"
+spec:
+  type: ExternalName
+  externalName: redis.shaka-shared.svc.cluster.local
+
+---
+# Staging Redis Alias (usa DB 1)
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-staging
+  namespace: shaka-staging
+  labels:
+    app: redis
+    environment: staging
+  annotations:
+    description: "Points to shared Redis - DB 1"
+spec:
+  type: ExternalName
+  externalName: redis.shaka-shared.svc.cluster.local
+
+---
+# Prod Redis Alias (usa DB 2)
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-prod
+  namespace: shaka-prod
+  labels:
+    app: redis
+    environment: production
+  annotations:
+    description: "Points to shared Redis - DB 2"
+spec:
+  type: ExternalName
+  externalName: redis.shaka-shared.svc.cluster.local
+
+---
+# ============================================================================
+# CONFIGMAP - Redis Database Mapping
+# ============================================================================
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: redis-db-mapping
+  namespace: shaka-shared
+  labels:
+    app: redis
+    component: config
+data:
+  mapping.json: |
+    {
+      "development": {
+        "database": 0,
+        "keyPrefix": "dev:"
+      },
+      "staging": {
+        "database": 1,
+        "keyPrefix": "staging:"
+      },
+      "production": {
+        "database": 2,
+        "keyPrefix": "prod:"
+      }
+    }

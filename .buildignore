@@ -1,0 +1,5 @@
+# Motor Hybrid - Placeholder (não compilar ainda)
+src/core/services/motor-hybrid/
+
+# Future MCP features
+src/core/services/motor-hybrid/future-mcp/

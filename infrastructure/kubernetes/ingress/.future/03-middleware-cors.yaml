@@ -1,0 +1,58 @@
+# Shaka API - CORS Middleware
+# Criado: 01/Dez/2025 - Fase 16
+
+---
+apiVersion: traefik.containo.us/v1alpha1
+kind: Middleware
+metadata:
+  name: cors
+  namespace: shaka-staging
+spec:
+  headers:
+    accessControlAllowMethods:
+      - GET
+      - POST
+      - PUT
+      - DELETE
+      - PATCH
+      - OPTIONS
+    
+    accessControlAllowHeaders:
+      - Content-Type
+      - Authorization
+      - X-Requested-With
+      - Accept
+      - Origin
+    
+    accessControlAllowOriginList:
+      - "http://localhost:3000"
+      - "http://localhost:3001"
+      - "http://staging.shaka.local"
+      - "https://staging.shaka.local"
+    
+    accessControlAllowCredentials: true
+    accessControlMaxAge: 3600
+    addVaryHeader: true
+    
+    customResponseHeaders:
+      X-Content-Type-Options: "nosniff"
+      X-Frame-Options: "DENY"
+      X-XSS-Protection: "1; mode=block"
+      Referrer-Policy: "strict-origin-when-cross-origin"
+
+---
+apiVersion: traefik.containo.us/v1alpha1
+kind: Middleware
+metadata:
+  name: cors
+  namespace: shaka-dev
+spec:
+  headers:
+    accessControlAllowMethods:
+      - "*"
+    accessControlAllowHeaders:
+      - "*"
+    accessControlAllowOriginList:
+      - "*"
+    accessControlAllowCredentials: true
+    accessControlMaxAge: 86400
