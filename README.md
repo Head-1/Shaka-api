@@ -248,7 +248,7 @@ This project is licensed under the MIT License - see [LICENSE](LICENSE) file.
 
 ## 👤 Author
 
-**[Seu Nome]**
+**[CoreStack Labs]**
 
 - GitHub: [Head-1](https://github.com/Head-1)
 - LinkedIn: [seu-nome](https://linkedin.com/in/mazza-junior-dev-ia)
