@@ -250,8 +250,8 @@ This project is licensed under the MIT License - see [LICENSE](LICENSE) file.
 
 **[Seu Nome]**
 
-- GitHub: [@seu-usuario](https://github.com/seu-usuario)
-- LinkedIn: [seu-nome](https://linkedin.com/in/seu-nome)
+- GitHub: [Head-1](https://github.com/Head-1)
+- LinkedIn: [seu-nome](https://linkedin.com/in/mazza-junior-dev-ia)
 - Portfolio: [seu-site.dev](https://seu-site.dev)
 
 ## 🙏 Acknowledgments
