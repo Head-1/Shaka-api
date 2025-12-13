@@ -202,7 +202,7 @@ shaka-api/
 │       └── ...
 │
 ├── 📂 docs/                         # Documentação
-│   ├── 📂 memorandos/               # 17 memorandos de handoff
+│   ├── 📂 memorandos/               # 31 memorandos de handoff
 │   │   ├── INDEX.md
 │   │   ├── 1-Fase-1+2-estrutura+BaseAPI.md
 │   │   ├── 2-Fase-3-Services+Types.md
@@ -220,7 +220,21 @@ shaka-api/
 │   │   ├── 14-Fase-13-Kubernetes_Production_Deployment_concluido.md
 │   │   ├── 15-Fase-14-API_Endpoint_Testing+Route_Debugging_75.md
 │   │   ├── 16-Fase-14-API_Endpoint_Testing+Route_Debugging_100.md
-│   │   └── 17-Fase-15-Deployment_Shaka_API_Staging.md
+│   │   ├── 17-Fase-15-Deployment_Shaka_API_Staging.md
+│   │   ├── 18-Fase-16-Ingress+MotorHybrid.md
+│   │   ├── 19-Fase-16-Ingress+Motor_Hybrid_Foundation_FASE_16_COMPLETA.md
+│   │   ├── 20-MEMORANDO_MESTRE-1.md
+│   │   ├── 21-MEMORANDO_MESTRE-2.md
+│   │   ├── 22-Fase-17-API_Key_Management+Usage_Tracking.md
+│   │   ├── 23-Fase-18-Sprint-Parte_7+8_Completa_Deployment+troubleshooting
+│   │   ├── 24-Memorando_Único.md
+│   │   ├── 25-Fase-19-Database_Migration+Production_Readiness.md
+│   │   ├── 26-Fase-20-Deep_Debugging+Repository_Architecture_Analysis.md
+│   │   ├── 27-Fase-21-Sprint1-API_Key_Management-Fix_Implementation.md
+│   │   ├── 28-Fase-22-Sprint1-API_Key_Management-Final_Fixes.md
+│   │   ├── 29-Fase-23-VALIDAÇÃO_DOS_MEMORAANDOS_27+28.md
+│   │   ├── 30-Fase-24-Correções_Api_Management.md
+│   │   └── 31-Fase-25-Api_key_Management_Validação_total.md
 │   │
 │   └── 📂 api/                      # API docs (futuro)
 │       └── swagger/
@@ -456,13 +470,8 @@ Isolation Strategy:
 
 ### 🔴 CRÍTICO
 
-#### 1. Controllers Duplicados
-**Problema:** `src/api/controllers/plan/` vs `src/api/controllers/plans/`  
-**Ação:** Consolidar em um único diretório  
-**Impacto:** Confusão de código, possível uso incorreto  
-**ETA:** Sprint atual
 
-#### 2. NetworkPolicies Removed (Fase 13)
+#### 1. NetworkPolicies Removed (Fase 13)
 **Problema:** Staging e Prod sem isolamento de rede  
 **Ação:** Restaurar NetworkPolicies com regras allow corretas  
 **Impacto:** Segurança relaxada (OK para dev, INACEITÁVEL para prod real)  
