@@ -29,7 +29,6 @@ com arquitetura enterprise, containerizado em Kubernetes (K3s), com 3 ambientes 
 |-------------------------------|---------------|----------------------------------|
 | **Memorandos de Handoff**     | 17            | ✅ Documentação completa         |
 | **Fases Concluídas**          | 15            | ✅ Kubernetes Deploy Operacional |
-| **Controllers**               | 4 únicos      | ⚠️ 1 duplicado (plan vs plans)   |
 | **Services**                  | 6 módulos     | ✅ Todos static methods          |
 | **Middlewares**               | 7 arquivos    | ✅ RequestLogger corrigido       |
 | **Routes**                    | 5 arquivos    | ✅ Roteamento em `/api/v1`       |
