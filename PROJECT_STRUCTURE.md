@@ -500,13 +500,13 @@ export class AppError extends Error {
 
 ### Recursos Alocados
 
-| Ambiente | Replicas | CPU Request | CPU Limit | RAM Request | RAM Limit |
-|----------|----------|-------------|-----------|-------------|-----------|
-| dev | 1 | 25m | 100m | 64Mi | 128Mi |
-| staging | 1 | 50m | 200m | 128Mi | 256Mi |
-| prod | 0 | 100m | 500m | 256Mi | 512Mi |
-| postgres (each) | 1 | 200m | 400m | 256Mi | 512Mi |
-| redis (shared) | 1 | 100m | 200m | 128Mi | 256Mi |
+| Ambiente        | Replicas | CPU Request | CPU Limit | RAM Request | RAM Limit |
+|-----------------|----------|-------------|-----------|-------------|-----------|
+| dev             | 1        | 25m         | 100m      | 64Mi        | 128Mi     |
+| staging         | 1        | 50m         | 200m      | 128Mi       | 256Mi     |
+| prod            | 0        | 100m        | 500m      | 256Mi       | 512Mi     |
+| postgres (each) | 1        | 200m        | 400m      | 256Mi       | 512Mi     |
+| redis (shared)  | 1        | 100m        | 200m      | 128Mi       | 256Mi     |
 
 **Total Allocated:** ~1GB RAM / ~1 CPU (server: 2GB / 2 CPU)  
 **Status:** ✅ Stable at ~75% memory usage
@@ -664,16 +664,16 @@ kubectl delete pod -n shaka-staging -l app=shaka-api
 
 ### Sprint 1 Status (API Key Management) ✅
 
-| Endpoint | Status | Tests |
-|----------|--------|-------|
-| POST /api/v1/keys | ✅ | 3/3 |
-| GET /api/v1/keys | ✅ | 2/2 |
-| GET /api/v1/keys/:id | ✅ | 3/3 |
-| GET /api/v1/keys/:id/usage | ✅ | 4/4 |
-| POST /api/v1/keys/:id/rotate | ✅ | 3/3 |
-| DELETE /api/v1/keys/:id | ✅ | 3/3 |
-| DELETE /api/v1/keys/:id/permanent | ✅ | 2/2 |
-| X-API-Key Authentication | ✅ | 2/2 |
+| Endpoint                          | Status | Tests |
+|-----------------------------------|--------|-------|
+| POST /api/v1/keys                 | ✅     | 3/3   |
+| GET /api/v1/keys                  | ✅     | 2/2   |
+| GET /api/v1/keys/:id              | ✅     | 3/3   |
+| GET /api/v1/keys/:id/usage        | ✅     | 4/4   |
+| POST /api/v1/keys/:id/rotate      | ✅     | 3/3   |
+| DELETE /api/v1/keys/:id           | ✅     | 3/3   |
+| DELETE /api/v1/keys/:id/permanent | ✅     | 2/2   |
+| X-API-Key Authentication          | ✅     | 2/2   |
 
 **Total:** 22/22 testes passando (100%)
 
@@ -757,22 +757,22 @@ kubectl delete pod -n shaka-staging -l app=shaka-api
 
 ### Technical Metrics
 
-| Metric | Current | Target Q2 | Target Q4 |
-|--------|---------|-----------|-----------|
-| Uptime | - | 99.5% | 99.9% |
-| P95 Latency | - | <200ms | <150ms |
-| Error Rate | 0% | <0.5% | <0.1% |
-| Test Coverage | 100% functional | 85% code | 90% code |
-| MTTR | - | <30min | <15min |
-| Deploy Frequency | Manual | Daily | On-demand |
+| Metric           | Current         | Target Q2 | Target Q4 |
+|------------------|-----------------|-----------|-----------|
+| Uptime           | -               | 99.5%     | 99.9%     |
+| P95 Latency      | -               | <200ms    | <150ms    |
+| Error Rate       | 0%              | <0.5%     | <0.1%     |
+| Test Coverage    | 100% functional | 85% code  | 90% code  |
+| MTTR             | -               | <30min    | <15min    |
+| Deploy Frequency | Manual          | Daily     | On-demand |
 
 ### Business Metrics
 
-| Metric | Target Q2 | Target Q4 |
-|--------|-----------|-----------|
-| Active Users | 100 | 1,000 |
-| API Calls/day | 10k | 100k |
-| Uptime SLA | 99.5% | 99.9% |
+| Metric        | Target Q2 | Target Q4 |
+|---------------|-----------|-----------|
+| Active Users  | 100       | 1,000     |
+| API Calls/day | 10k       | 100k      |
+| Uptime SLA    | 99.5%     | 99.9%     |
 
 ---
 
@@ -806,28 +806,28 @@ kubectl delete pod -n shaka-staging -l app=shaka-api
 
 ## 📚 GLOSSÁRIO DE TERMOS
 
-| Termo | Significado |
-|-------|-------------|
-| **API Key** | Chave de autenticação no formato `sk_live_...` |
-| **JWT** | JSON Web Token, token stateless |
-| **Multi-tenancy** | Múltiplos usuários compartilham infraestrutura |
-| **Rate Limiting** | Limitar requests por período |
-| **Soft Delete** | Marcar como inativo ao invés de deletar |
-| **Lazy Initialization** | Inicializar recurso apenas quando necessário |
-| **Snake Case** | Convenção: user_id, api_key_id |
-| **HPA** | Horizontal Pod Autoscaler |
-| **MTTR** | Mean Time To Recovery |
-| **SLO** | Service Level Objective |
+| Termo                   | Significado |
+|-------------------------|------------------------------------------------|
+| **API Key**             | Chave de autenticação no formato `sk_live_...` |
+| **JWT**                 | JSON Web Token, token stateless                |
+| **Multi-tenancy**       | Múltiplos usuários compartilham infraestrutura |
+| **Rate Limiting**       | Limitar requests por período                   |
+| **Soft Delete**         | Marcar como inativo ao invés de deletar        |
+| **Lazy Initialization** | Inicializar recurso apenas quando necessário   |
+| **Snake Case**          | Convenção: user_id, api_key_id                 |
+| **HPA**                 | Horizontal Pod Autoscaler                      |
+| **MTTR**                | Mean Time To Recovery                          |
+| **SLO**                 | Service Level Objective                        |
 
 ---
 
 ## 🔄 VERSIONAMENTO DESTE DOCUMENTO
 
-| Versão | Data | Mudanças | Autor |
-|--------|------|----------|-------|
-| 1.0 | 2025-11-25 | Criação inicial | CTO Headmaster |
-| 2.0 | 2025-12-01 | Auditoria completa pós-Fase 15 | CTO Headmaster |
-| 2.1 | 2025-12-13 | Sprint 1 completo + Fases 19-25 | CTO Headmaster |
+| Versão | Data       | Mudanças                        | Autor          |
+|--------|------------|---------------------------------|----------------|
+| 1.0    | 2025-11-25 | Criação inicial                 | CTO Headmaster |
+| 2.0    | 2025-12-01 | Auditoria completa pós-Fase 15  | CTO Headmaster |
+| 2.1    | 2025-12-13 | Sprint 1 completo + Fases 19-25 | CTO Headmaster |
 
 **Última Atualização:** 13 de Dezembro de 2025  
 **Próxima Revisão:** Após conclusão da Fase 26 (Ingress)  
